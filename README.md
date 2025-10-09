@@ -1,4 +1,4 @@
-
+https://github.com/lozanno00/Vision-Artifial.git
 
 
 Proyecto CNN con CIFAR-10
