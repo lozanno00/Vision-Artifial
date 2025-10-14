@@ -36,6 +36,39 @@ class CifarDataset:
         print(f"Forma de y_test: {self.y_test.shape}")
         print(f"Número de clases: {self.y_train.shape[1]}")
         print("Ejemplo de etiqueta one-hot:", self.y_train[0])
+    
+    def validate_dataset(self):
+        print("\n=== Validación completa del dataset ===")
+        
+        print("\n1. Verificación de formas:")
+        print(f"x_train: {self.x_train.shape} - Tipo: {self.x_train.dtype}")
+        print(f"x_test: {self.x_test.shape} - Tipo: {self.x_test.dtype}")
+        print(f"y_train: {self.y_train.shape} - Tipo: {self.y_train.dtype}")
+        print(f"y_test: {self.y_test.shape} - Tipo: {self.y_test.dtype}")
+        
+        print("\n2. Verificación de rangos de valores:")
+        print(f"Rango x_train: [{self.x_train.min():.3f}, {self.x_train.max():.3f}]")
+        print(f"Rango x_test: [{self.x_test.min():.3f}, {self.x_test.max():.3f}]")
+        
+        print("\n3. Verificación de etiquetas:")
+        print(f"Número de clases: {self.y_train.shape[1]}")
+        print(f"Suma de valores por etiqueta (debe ser 1): {self.y_train[0].sum()}")
+        print(f"Ejemplo de etiqueta one-hot: {self.y_train[0]}")
+        
+        print("\n4. Verificación de integridad:")
+        print(f"Total de imágenes de entrenamiento: {len(self.x_train)}")
+        print(f"Total de imágenes de prueba: {len(self.x_test)}")
+        print(f"Dimensiones de las imágenes: {self.x_train.shape[1:]} (debe ser 32x32x3)")
+        
+        is_valid = (
+            self.x_train.shape[1:] == (32, 32, 3) and
+            0 <= self.x_train.min() and self.x_train.max() <= 1 and
+            self.y_train.shape[1] == 10 and
+            np.allclose(self.y_train.sum(axis=1), 1)
+        )
+        
+        print(f"\n=== Estado del dataset: {'LISTO ✓' if is_valid else 'NO VÁLIDO ✗'} ===")
+        return is_valid
         
     def print_dimensions(self):
         print(f"Training data shape: {self.x_train.shape}")

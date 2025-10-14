@@ -21,6 +21,11 @@ def main():
     dataset.convert_to_onehot()
     dataset.verify_onehot()
     
+    if dataset.validate_dataset():
+        print("\nEl dataset está listo para ser usado en la CNN")
+    else:
+        print("\nAdvertencia: El dataset necesita revisión")
+    
     dataset.show_examples(num_examples=3)
     plt.tight_layout()
     plt.show()
