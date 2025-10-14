@@ -1,4 +1,5 @@
 from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -24,6 +25,17 @@ class CifarDataset:
         print(f"Rango de valores x_test: [{self.x_test.min():.3f}, {self.x_test.max():.3f}]")
         print(f"Forma de x_train: {self.x_train.shape}")
         print(f"Forma de x_test: {self.x_test.shape}")
+    
+    def convert_to_onehot(self):
+        self.y_train = to_categorical(self.y_train, num_classes=10)
+        self.y_test = to_categorical(self.y_test, num_classes=10)
+    
+    def verify_onehot(self):
+        print("\nVerificación de codificación one-hot:")
+        print(f"Forma de y_train: {self.y_train.shape}")
+        print(f"Forma de y_test: {self.y_test.shape}")
+        print(f"Número de clases: {self.y_train.shape[1]}")
+        print("Ejemplo de etiqueta one-hot:", self.y_train[0])
         
     def print_dimensions(self):
         print(f"Training data shape: {self.x_train.shape}")
@@ -32,7 +44,10 @@ class CifarDataset:
         print(f"Test labels shape: {self.y_test.shape}")
         
     def get_images_by_class(self, class_idx, num_examples=2):
-        class_indices = np.where(self.y_train.reshape(-1) == class_idx)[0]
+        if len(self.y_train.shape) == 2:  # Si las etiquetas están en formato one-hot
+            class_indices = np.where(self.y_train[:, class_idx] == 1)[0]
+        else:  # Si las etiquetas están en formato numérico
+            class_indices = np.where(self.y_train.reshape(-1) == class_idx)[0]
         selected_indices = np.random.choice(class_indices, size=num_examples, replace=False)
         return self.x_train[selected_indices]
     

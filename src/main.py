@@ -14,6 +14,13 @@ def main():
     print("\nDespués de la normalización:")
     dataset.verify_normalization()
     
+    print("\nAntes de la conversión one-hot:")
+    print(f"Forma original de y_train: {dataset.y_train.shape}")
+    print(f"Ejemplo de etiqueta original:", dataset.y_train[0])
+    
+    dataset.convert_to_onehot()
+    dataset.verify_onehot()
+    
     dataset.show_examples(num_examples=3)
     plt.tight_layout()
     plt.show()
