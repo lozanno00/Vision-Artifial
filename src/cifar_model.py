@@ -1,13 +1,16 @@
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D
 
 class CifarModel:
     def __init__(self):
         self.model = Sequential()
         
     def build_model(self):
-        pass
+        self.model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)))
+        self.model.add(MaxPooling2D(pool_size=(2, 2)))
         
     def summary(self):
+        print("\n=== Arquitectura del Modelo ===")
         self.model.summary()
         
     def get_model(self):

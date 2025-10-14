@@ -30,6 +30,11 @@ def main():
         
         print("\n=== Inicialización del Modelo ===")
         model = CifarModel()
+        print("\nModelo vacío:")
+        model.summary()
+        
+        print("\nDespués de añadir el primer bloque convolucional:")
+        model.build_model()
         model.summary()
     else:
         print("\nAdvertencia: El dataset necesita revisión")
