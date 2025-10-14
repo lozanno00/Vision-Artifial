@@ -33,9 +33,19 @@ def main():
         print("\nModelo vacío:")
         model.summary()
         
-        print("\nDespués de añadir el primer bloque convolucional:")
+        print("\nConstruyendo el modelo CNN:")
         model.build_model()
+        print("\nModelo con ambos bloques convolucionales:")
         model.summary()
+        
+        print("\nAnálisis de la reducción del tensor:")
+        print("Entrada original: (32, 32, 3)")
+        print("Después del primer bloque:")
+        print("- Conv2D: (30, 30, 32)")
+        print("- MaxPooling: (15, 15, 32)")
+        print("Después del segundo bloque:")
+        print("- Conv2D: (13, 13, 64)")
+        print("- MaxPooling: (6, 6, 64)")
     else:
         print("\nAdvertencia: El dataset necesita revisión")
     
