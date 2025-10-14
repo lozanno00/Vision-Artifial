@@ -6,6 +6,14 @@ def main():
     dataset.load_data()
     dataset.print_dimensions()
     
+    print("\nAntes de la normalización:")
+    dataset.verify_normalization()
+    
+    dataset.normalize_pixels()
+    
+    print("\nDespués de la normalización:")
+    dataset.verify_normalization()
+    
     dataset.show_examples(num_examples=3)
     plt.tight_layout()
     plt.show()

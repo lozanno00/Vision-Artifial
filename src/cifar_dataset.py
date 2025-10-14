@@ -13,6 +13,17 @@ class CifarDataset:
         
     def load_data(self):
         (self.x_train, self.y_train), (self.x_test, self.y_test) = cifar10.load_data()
+    
+    def normalize_pixels(self):
+        self.x_train = self.x_train.astype('float32') / 255.0
+        self.x_test = self.x_test.astype('float32') / 255.0
+        
+    def verify_normalization(self):
+        print("Verificación de normalización:")
+        print(f"Rango de valores x_train: [{self.x_train.min():.3f}, {self.x_train.max():.3f}]")
+        print(f"Rango de valores x_test: [{self.x_test.min():.3f}, {self.x_test.max():.3f}]")
+        print(f"Forma de x_train: {self.x_train.shape}")
+        print(f"Forma de x_test: {self.x_test.shape}")
         
     def print_dimensions(self):
         print(f"Training data shape: {self.x_train.shape}")
