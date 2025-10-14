@@ -1,4 +1,8 @@
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 from cifar_dataset import CifarDataset
+from cifar_model import CifarModel
 import matplotlib.pyplot as plt
 
 def main():
@@ -23,6 +27,10 @@ def main():
     
     if dataset.validate_dataset():
         print("\nEl dataset está listo para ser usado en la CNN")
+        
+        print("\n=== Inicialización del Modelo ===")
+        model = CifarModel()
+        model.summary()
     else:
         print("\nAdvertencia: El dataset necesita revisión")
     
