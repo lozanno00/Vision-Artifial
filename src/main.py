@@ -6,6 +6,8 @@ from cifar_model import CifarModel
 from model.compile_model import compile_and_summarize
 from model.train_model import train_model
 from model.plot_history import plot_history
+from model.evaluate_model import evaluate_and_report
+from model.performance_analysis import analyze_performance
 import matplotlib.pyplot as plt
 
 def main():
@@ -53,6 +55,9 @@ def main():
         history = train_model(model, dataset.x_train, dataset.y_train, epochs=10, validation_split=0.1)
         
         plot_history(history)
+        
+        loss, test_accuracy = evaluate_and_report(model, dataset.x_test, dataset.y_test)
+        analyze_performance(history, test_accuracy)
         
         print("\nAnálisis de la reducción del tensor:")
         print("Entrada original: (32, 32, 3)")
