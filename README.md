@@ -74,16 +74,5 @@ Curvas de entrenamiento claras, modelo evaluado y análisis técnico del rendimi
 
 ---
 
-## 📁 Estructura del Proyecto
-- **dataset/**: contiene los datos CIFAR-10
-- **notebooks/**: desarrollo paso a paso de los milestones
-- **models/**: definición del modelo CNN
-- **results/**: gráficos y métricas obtenidas
-- **README.md**: documentación del proyecto
 
----
-
-## 📜 Licencia
-Proyecto de uso educativo.  
-Libre para modificar y distribuir citando la fuente original.
 
