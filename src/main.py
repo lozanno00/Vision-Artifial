@@ -38,6 +38,13 @@ def main():
         print("\nModelo con ambos bloques convolucionales:")
         model.summary()
         
+        # Compilar el modelo
+        model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        
         print("\nAnálisis de la reducción del tensor:")
         print("Entrada original: (32, 32, 3)")
         print("Después del primer bloque:")
@@ -52,6 +59,3 @@ def main():
     dataset.show_examples(num_examples=3)
     plt.tight_layout()
     plt.show()
-
-if __name__ == "__main__":
-    main()
