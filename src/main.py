@@ -3,6 +3,7 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 from cifar_dataset import CifarDataset
 from cifar_model import CifarModel
+from model.compile_model import compile_and_summarize
 import matplotlib.pyplot as plt
 
 def main():
@@ -44,6 +45,8 @@ def main():
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
+        
+        compile_and_summarize(model)
         
         print("\nAnálisis de la reducción del tensor:")
         print("Entrada original: (32, 32, 3)")
