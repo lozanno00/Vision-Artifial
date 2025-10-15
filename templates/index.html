@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Vision Artificial</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <h4>Gráfica</h4>
+            <img src="{{ url_for('plot_png') }}" class="img-fluid" alt="Gráfica">
+        </div>
+        <div class="col-md-4">
+            <h4>Entrenamiento de Imágenes</h4>
+            <form method="post" action="{{ url_for('train') }}">
+                <button type="submit" class="btn btn-primary">Entrenar</button>
+            </form>
+            {% if train_status %}
+            <div class="mt-2 alert alert-info">{{ train_status }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-4">
+            <h4>Diagrama de Predicción</h4>
+            <img src="{{ url_for('diagram_png') }}" class="img-fluid" alt="Diagrama">
+        </div>
+    </div>
+</div>
+</body>
+</html>
