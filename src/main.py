@@ -5,6 +5,7 @@ from cifar_dataset import CifarDataset
 from cifar_model import CifarModel
 from model.compile_model import compile_and_summarize
 from model.train_model import train_model
+from model.plot_history import plot_history
 import matplotlib.pyplot as plt
 
 def main():
@@ -50,6 +51,8 @@ def main():
         compile_and_summarize(model)
         
         history = train_model(model, dataset.x_train, dataset.y_train, epochs=10, validation_split=0.1)
+        
+        plot_history(history)
         
         print("\nAnálisis de la reducción del tensor:")
         print("Entrada original: (32, 32, 3)")
