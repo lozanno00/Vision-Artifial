@@ -1,31 +1,162 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Vision Artificial</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
-<body>
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-4">
-            <h4>Gráfica</h4>
-            <img src="{{ url_for('plot_png') }}" class="img-fluid" alt="Gráfica">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Vision-Artifial - Dashboard</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    </head>
+    <body>
+        <div class="container mt-4">
+            <h1>Vision-Artifial</h1>
+            <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="grid-tab" data-bs-toggle="tab" data-bs-target="#grid" type="button" role="tab">Grid (50 imágenes)</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="predict-tab" data-bs-toggle="tab" data-bs-target="#predict" type="button" role="tab">Predict</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="results-tab" data-bs-toggle="tab" data-bs-target="#results" type="button" role="tab">Resultados</button>
+                </li>
+            </ul>
+            <div class="tab-content mt-3">
+                <div class="tab-pane fade show active" id="grid" role="tabpanel">
+                    <h5>Primeras 50 imágenes del conjunto de prueba</h5>
+                    <div id="grid_container" class="d-flex flex-wrap gap-2">
+                        <!-- images will be inserted here -->
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="predict" role="tabpanel">
+                    <h5>Sube una imagen para clasificar (32x32 será aplicado)</h5>
+                    <form id="predict_form" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input class="form-control" type="file" id="fileInput" name="file" accept="image/*" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Predecir</button>
+                    </form>
+                    <div id="predict_result" class="mt-3"></div>
+                </div>
+                <div class="tab-pane fade" id="results" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Accuracy</h5>
+                            <img id="acc_img" src="/plot/accuracy.png" class="img-fluid" alt="Accuracy">
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Loss</h5>
+                            <img id="loss_img" src="/plot/loss.png" class="img-fluid" alt="Loss">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h5>Precisión final estimada</h5>
+                        <div id="final_acc" class="fs-4"></div>
+                        <button id="run_btn" class="btn btn-primary mt-2">Entrenar y actualizar resultados</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-4">
-            <h4>Entrenamiento de Imágenes</h4>
-            <form method="post" action="{{ url_for('train') }}">
-                <button type="submit" class="btn btn-primary">Entrenar</button>
-            </form>
-            {% if train_status %}
-            <div class="mt-2 alert alert-info">{{ train_status }}</div>
-            {% endif %}
-        </div>
-        <div class="col-md-4">
-            <h4>Diagrama de Predicción</h4>
-            <img src="{{ url_for('diagram_png') }}" class="img-fluid" alt="Diagrama">
-        </div>
-    </div>
-</div>
-</body>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            $(function(){
+                $('#run_btn').on('click', function(){
+                    $('#run_btn').prop('disabled', true).text('Entrenando...');
+                    $.getJSON('/train_and_plots', function(data){
+                        $('#acc_img').attr('src', data.accuracy_url + '?t=' + Date.now());
+                        $('#loss_img').attr('src', data.loss_url + '?t=' + Date.now());
+                        $('#final_acc').text((data.final_accuracy*100).toFixed(2) + '%');
+                        $('#run_btn').prop('disabled', false).text('Entrenar y actualizar resultados');
+                        // switch to results tab
+                        var tab = new bootstrap.Tab(document.querySelector('#tab3-tab'));
+                        tab.show();
+                    }).fail(function(){
+                        alert('Error al entrenar. Revisa la consola del servidor.');
+                        $('#run_btn').prop('disabled', false).text('Entrenar y actualizar resultados');
+                    });
+                });
+            });
+        </script>
+            <script>
+                // Handle predict form submission
+                const form = document.getElementById('predict_form');
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const input = document.getElementById('fileInput');
+                    if (!input.files || input.files.length === 0) return;
+                    const file = input.files[0];
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const res = await fetch('/predict', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    const out = document.getElementById('predict_result');
+                    if (res.ok) {
+                        out.innerHTML = `<div class="alert alert-success">Clase: <strong>${data.class}</strong><br>Confianza: ${(+data.confidence).toFixed(3)}</div>`;
+                    } else {
+                        out.innerHTML = `<div class="alert alert-danger">Error: ${data.error || 'unknown'}</div>`;
+                    }
+                });
+
+                // Handle training button
+                const runBtn = document.getElementById('run_btn');
+                runBtn.addEventListener('click', async () => {
+                    runBtn.disabled = true;
+                    runBtn.innerText = 'Entrenando...';
+                    const res = await fetch('/train_and_plots', { method: 'POST' });
+                    if (res.status === 202) {
+                        // poll for plots every 2s until available
+                        const poll = setInterval(async () => {
+                            const accImg = document.getElementById('acc_img');
+                            const lossImg = document.getElementById('loss_img');
+                            // try to fetch the accuracy plot
+                            const r = await fetch('/plot/accuracy.png');
+                            if (r.ok) {
+                                // update images (cache buster)
+                                const ts = Date.now();
+                                accImg.src = '/plot/accuracy.png?ts=' + ts;
+                                lossImg.src = '/plot/loss.png?ts=' + ts;
+                                // try to read final accuracy by attempting to fetch /status (not implemented) - instead enable button back
+                                clearInterval(poll);
+                                runBtn.disabled = false;
+                                runBtn.innerText = 'Entrenar y actualizar resultados';
+                            }
+                        }, 2000);
+                    } else {
+                        runBtn.disabled = false;
+                        runBtn.innerText = 'Entrenar y actualizar resultados';
+                    }
+                });
+            </script>
+            <script>
+                // populate 50 separate images for the grid
+                (function(){
+                    const container = document.getElementById('grid_container');
+                    for (let i = 0; i < 50; i++) {
+                        const wrapper = document.createElement('div');
+                        wrapper.style.width = '96px';
+                        wrapper.style.height = '96px';
+                        wrapper.style.overflow = 'hidden';
+                        wrapper.style.border = '1px solid #ddd';
+                        wrapper.style.display = 'flex';
+                        wrapper.style.alignItems = 'center';
+                        wrapper.style.justifyContent = 'center';
+
+                        const img = document.createElement('img');
+                        img.src = '/image/' + i;
+                        img.alt = 'img-' + i;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'cover';
+                        img.style.cursor = 'pointer';
+                        img.addEventListener('click', () => {
+                            window.open('/image/' + i, '_blank');
+                        });
+
+                        wrapper.appendChild(img);
+                        container.appendChild(wrapper);
+                    }
+                })();
+            </script>
+    </body>
 </html>

@@ -1,134 +1,230 @@
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
+from flask import Flask, render_template, request, jsonify, send_file
+import io
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from PIL import Image
+
 from src.cifar_dataset import CifarDataset
 from src.cifar_model import CifarModel
-import matplotlib.pyplot as plt
+import threading
 
-def main():
-    dataset = CifarDataset()
-    dataset.load_data()
-    dataset.print_dimensions()
-    dataset.normalize_pixels()
-    dataset.convert_to_onehot()
-    dataset.validate_dataset()
 
-    model = CifarModel()
-    model.build_model()
-    model.summary()
-    model.compile(
-        optimizer='adam',
-        loss='categorical_crossentropy',
-        metrics=['accuracy']
-    )
-    history = model.fit(
-        dataset.x_train,
-        dataset.y_train,
-        epochs=5,
-        validation_split=0.1,
-        batch_size=32,
-        verbose=1
-    )
+app = Flask(__name__)
 
-    dataset.show_examples(num_examples=3)
+# Global dataset and model (loaded on startup)
+DATASET = None
+MODEL = None
+CLASS_NAMES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+
+# Training / plots state
+PLOTS = {'accuracy': None, 'loss': None}
+FINAL_ACC = None
+TRAIN_LOCK = threading.Lock()
+TRAINING_IN_PROGRESS = False
+
+
+def load_resources():
+    global DATASET, MODEL
+    DATASET = CifarDataset()
+    DATASET.load_data()
+    DATASET.normalize_pixels()
+    DATASET.convert_to_onehot()
+
+    MODEL = CifarModel()
+    MODEL.build_model()
+    MODEL.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/images50')
+def images50():
+    # create a grid of 50 images from DATASET.x_test
+    if DATASET is None:
+        # return a tiny placeholder image if dataset not ready
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, 'Dataset not loaded', ha='center', va='center')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        plt.close(fig)
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
+
+    imgs = DATASET.x_test[:50]
+    # if imgs are floats in [0,1], convert to uint8 0-255 for consistent display
+    try:
+        if imgs.dtype == np.float32 or imgs.max() <= 1.0:
+            disp = (imgs * 255).astype(np.uint8)
+        else:
+            disp = imgs.astype(np.uint8)
+    except Exception:
+        disp = imgs
+
+    fig, axes = plt.subplots(5, 10, figsize=(10, 5))
+    idx = 0
+    for r in range(5):
+        for c in range(10):
+            ax = axes[r, c]
+            ax.imshow(disp[idx])
+            ax.axis('off')
+            idx += 1
+
+    buf = io.BytesIO()
     plt.tight_layout()
-    plt.show()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    # prevent aggressive caching in browser
+    resp = send_file(buf, mimetype='image/png')
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return resp
 
-if __name__ == "__main__":
-    main()
-    import gradio as gr
-    def run_training():
-        import io
-        import matplotlib.pyplot as plt
-        from tensorflow.keras.utils import plot_model
-        from PIL import Image
-        dataset = CifarDataset()
-        dataset.load_data()
-        dataset.normalize_pixels()
-        dataset.convert_to_onehot()
-        model = CifarModel()
-        model.build_model()
-        model.compile(
-            optimizer='adam',
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
+
+@app.route('/image/<int:idx>')
+def single_image(idx):
+    """Return a single test image by index as PNG."""
+    if DATASET is None:
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, 'Dataset not loaded', ha='center', va='center')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        plt.close(fig)
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
+
+    if idx < 0 or idx >= len(DATASET.x_test):
+        return jsonify({'error': 'index out of range'}), 404
+
+    img = DATASET.x_test[idx]
+    try:
+        if img.dtype == np.float32 or img.max() <= 1.0:
+            disp = (img * 255).astype(np.uint8)
+        else:
+            disp = img.astype(np.uint8)
+    except Exception:
+        disp = img
+
+    pil_img = Image.fromarray(disp)
+    buf = io.BytesIO()
+    pil_img.save(buf, format='PNG')
+    buf.seek(0)
+    resp = send_file(buf, mimetype='image/png')
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return resp
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    # accept an uploaded image file
+    if 'file' not in request.files:
+        return jsonify({'error': 'no file provided'}), 400
+    file = request.files['file']
+    img = Image.open(file.stream).convert('RGB')
+    img = img.resize((32, 32))
+    arr = np.array(img).astype('float32') / 255.0
+    arr = np.expand_dims(arr, axis=0)
+
+    preds = MODEL.model.predict(arr)
+    pred_idx = int(np.argmax(preds, axis=1)[0])
+    confidence = float(np.max(preds))
+    return jsonify({'class': CLASS_NAMES[pred_idx], 'confidence': confidence})
+
+
+def _train_and_record(epochs=10):
+    """Run training and store accuracy/loss plots in-memory."""
+    global PLOTS, FINAL_ACC, TRAINING_IN_PROGRESS
+    with TRAIN_LOCK:
+        TRAINING_IN_PROGRESS = True
+    try:
+        history = MODEL.model.fit(
+            DATASET.x_train, DATASET.y_train,
+            epochs=epochs,
+            batch_size=64,
+            validation_data=(DATASET.x_test, DATASET.y_test),
+            verbose=1
         )
-        # Ejemplos de entrenamiento
-        plt.figure(figsize=(6,2))
-        for i in range(3):
-            idx = i
-            plt.subplot(1, 3, i+1)
-            plt.imshow(dataset.x_train[idx])
-            plt.axis('off')
-            plt.title(f"Clase {dataset.class_names[np.argmax(dataset.y_train[idx])]}")
-        buf_imgs = io.BytesIO()
-        plt.tight_layout()
-        plt.savefig(buf_imgs, format='png')
-        buf_imgs.seek(0)
-        img_examples = Image.open(buf_imgs)
 
-        # Diagrama del modelo
-        buf_model = io.BytesIO()
-        plot_model(model.model, to_file=buf_model, show_shapes=True, show_layer_names=True, dpi=80, expand_nested=False)
-        buf_model.seek(0)
-        try:
-            img_model = Image.open(buf_model)
-        except Exception:
-            img_model = None
+        # accuracy plot
+        fig1, ax1 = plt.subplots()
+        ax1.plot(history.history.get('accuracy', []), label='train_acc')
+        ax1.plot(history.history.get('val_accuracy', []), label='val_acc')
+        ax1.set_title('Accuracy')
+        ax1.legend()
+        buf1 = io.BytesIO()
+        fig1.savefig(buf1, format='png')
+        plt.close(fig1)
+        buf1.seek(0)
 
-        # Entrenamiento
-        history = model.fit(
-            dataset.x_train,
-            dataset.y_train,
-            epochs=5,
-            validation_split=0.1,
-            batch_size=32,
-            verbose=0
-        )
-        # Gráficas de accuracy y loss
-        plt.figure(figsize=(8,3))
-        plt.subplot(1,2,1)
-        plt.plot(history.history['accuracy'], label='accuracy')
-        plt.plot(history.history['val_accuracy'], label='val_accuracy')
-        plt.xlabel('Epoch')
-        plt.ylabel('Accuracy')
-        plt.legend()
-        plt.title('Accuracy')
-        plt.subplot(1,2,2)
-        plt.plot(history.history['loss'], label='loss')
-        plt.plot(history.history['val_loss'], label='val_loss')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.title('Loss')
-        buf_graph = io.BytesIO()
-        plt.tight_layout()
-        plt.savefig(buf_graph, format='png')
-        buf_graph.seek(0)
-        img_graph = Image.open(buf_graph)
+        # loss plot
+        fig2, ax2 = plt.subplots()
+        ax2.plot(history.history.get('loss', []), label='train_loss')
+        ax2.plot(history.history.get('val_loss', []), label='val_loss')
+        ax2.set_title('Loss')
+        ax2.legend()
+        buf2 = io.BytesIO()
+        fig2.savefig(buf2, format='png')
+        plt.close(fig2)
+        buf2.seek(0)
 
-        # Precisión final
-        final_acc = history.history['val_accuracy'][-1]
-        return img_examples, img_model, img_graph, f"Precisión final estimada: {final_acc:.3f}"
+        PLOTS['accuracy'] = buf1.getvalue()
+        PLOTS['loss'] = buf2.getvalue()
+        FINAL_ACC = history.history.get('val_accuracy', [])[-1] if len(history.history.get('val_accuracy', [])) > 0 else None
+    finally:
+        with TRAIN_LOCK:
+            TRAINING_IN_PROGRESS = False
 
-    with gr.Blocks() as demo:
-        gr.Markdown("# Entrenamiento CNN CIFAR-10 (5 epochs)")
-        btn = gr.Button("Entrenar y mostrar resultados")
-        with gr.Tabs():
-            with gr.Tab("Fase de entrenamiento"):
-                img1 = gr.Image(label="Imágenes de ejemplo", type="pil")
-            with gr.Tab("Diagrama del modelo"):
-                img2 = gr.Image(label="Diagrama del modelo", type="pil")
-            with gr.Tab("Gráficas y precisión"):
-                img3 = gr.Image(label="Accuracy y Loss", type="pil")
-                acc_text = gr.Textbox(label="Precisión final estimada")
-        btn.click(run_training, outputs=[img1, img2, img3, acc_text])
-    demo.launch()
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "gradio":
-        gradio_interface()
+@app.route('/train_and_plots', methods=['POST'])
+def train_and_plots():
+    """Start training in background and return status."""
+    global TRAINING_IN_PROGRESS
+    if DATASET is None or MODEL is None:
+        return jsonify({'error': 'resources not ready'}), 500
+    if TRAINING_IN_PROGRESS:
+        return jsonify({'status': 'training_in_progress'}), 202
+    t = threading.Thread(target=_train_and_record, kwargs={'epochs': 10}, daemon=True)
+    t.start()
+    return jsonify({'status': 'training_started'}), 202
+
+
+@app.route('/plot/<name>')
+def plot_image(name):
+    key = None
+    if name.lower().startswith('accuracy'):
+        key = 'accuracy'
+    elif name.lower().startswith('loss'):
+        key = 'loss'
     else:
-        main()
+        return jsonify({'error': 'unknown plot'}), 404
+
+    data = PLOTS.get(key)
+    if data is None:
+        # return a small placeholder image
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, 'No plot yet', ha='center', va='center')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        plt.close(fig)
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
+    return send_file(io.BytesIO(data), mimetype='image/png')
+
+
+if __name__ == '__main__':
+    load_resources()
+    # Train synchronously before starting the server (10 epochs)
+    print('Iniciando entrenamiento inicial (10 epochs) — la aplicación estará disponible después de completar el entrenamiento...')
+    _train_and_record(epochs=10)
+    if FINAL_ACC is not None:
+        print(f'Entrenamiento inicial completado — accuracy final (val): {FINAL_ACC:.4f}')
+    else:
+        print('Entrenamiento inicial completado')
+    app.run(debug=True)
