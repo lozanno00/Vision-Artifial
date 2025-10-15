@@ -1,4 +1,3 @@
-
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
@@ -36,7 +35,8 @@ def main():
     plt.tight_layout()
     plt.show()
 
-def gradio_interface():
+if __name__ == "__main__":
+    main()
     import gradio as gr
     def run_training():
         import io
