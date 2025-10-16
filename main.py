@@ -16,12 +16,10 @@ import threading
 
 app = Flask(__name__)
 
-# Global dataset and model (loaded on startup)
 DATASET = None
 MODEL = None
 CLASS_NAMES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
-# Training / plots state
 PLOTS = {'accuracy': None, 'loss': None}
 FINAL_ACC = None
 TRAIN_LOCK = threading.Lock()
@@ -47,9 +45,7 @@ def index():
 
 @app.route('/images50')
 def images50():
-    # create a grid of 50 images from DATASET.x_test
     if DATASET is None:
-        # return a tiny placeholder image if dataset not ready
         fig, ax = plt.subplots()
         ax.text(0.5, 0.5, 'Dataset not loaded', ha='center', va='center')
         buf = io.BytesIO()
@@ -59,7 +55,6 @@ def images50():
         return send_file(buf, mimetype='image/png')
 
     imgs = DATASET.x_test[:50]
-    # if imgs are floats in [0,1], convert to uint8 0-255 for consistent display
     try:
         if imgs.dtype == np.float32 or imgs.max() <= 1.0:
             disp = (imgs * 255).astype(np.uint8)
@@ -82,7 +77,6 @@ def images50():
     fig.savefig(buf, format='png')
     plt.close(fig)
     buf.seek(0)
-    # prevent aggressive caching in browser
     resp = send_file(buf, mimetype='image/png')
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return resp
@@ -123,7 +117,6 @@ def single_image(idx):
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    # accept an uploaded image file
     if 'file' not in request.files:
         return jsonify({'error': 'no file provided'}), 400
     file = request.files['file']
@@ -152,7 +145,6 @@ def _train_and_record(epochs=10):
             verbose=1
         )
 
-        # accuracy plot
         fig1, ax1 = plt.subplots()
         ax1.plot(history.history.get('accuracy', []), label='train_acc')
         ax1.plot(history.history.get('val_accuracy', []), label='val_acc')
@@ -163,7 +155,6 @@ def _train_and_record(epochs=10):
         plt.close(fig1)
         buf1.seek(0)
 
-        # loss plot
         fig2, ax2 = plt.subplots()
         ax2.plot(history.history.get('loss', []), label='train_loss')
         ax2.plot(history.history.get('val_loss', []), label='val_loss')
@@ -207,7 +198,6 @@ def plot_image(name):
 
     data = PLOTS.get(key)
     if data is None:
-        # return a small placeholder image
         fig, ax = plt.subplots()
         ax.text(0.5, 0.5, 'No plot yet', ha='center', va='center')
         buf = io.BytesIO()
@@ -220,7 +210,6 @@ def plot_image(name):
 
 if __name__ == '__main__':
     load_resources()
-    # Train synchronously before starting the server (10 epochs)
     print('Iniciando entrenamiento inicial (10 epochs) — la aplicación estará disponible después de completar el entrenamiento...')
     _train_and_record(epochs=10)
     if FINAL_ACC is not None:

@@ -5,14 +5,56 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Vision-Artifial - Dashboard</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <style>
+            body { background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }
+            .app-header { margin-bottom: 1rem; }
+            .card-grid-item { width: 96px; height: 96px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(16,24,40,0.04); }
+            .card-grid-item img { width: 100%; height: 100%; object-fit: cover; transition: transform .18s ease; }
+            .card-grid-item:hover img { transform: scale(1.08); }
+            .preview-img { max-width: 240px; max-height: 240px; object-fit: contain; border: 1px solid #eee; border-radius: 8px; }
+            .spinner-overlay { position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,0.6); }
+        </style>
     </head>
     <body>
+        <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+            <div class="container">
+                <a class="navbar-brand" href="#"><i class="fa-solid fa-eye"></i> Vision-Artifial</a>
+                <div class="ms-auto">
+                    <small class="text-muted">CIFAR-10 demo</small>
+                </div>
+
+                    <!-- Image preview modal -->
+                    <div class="modal fade" id="imgModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-body p-0">
+                                    <img id="modal_img" src="" class="img-fluid w-100" alt="fullsize">
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+        </nav>
+
         <div class="container mt-4">
-            <h1>Vision-Artifial</h1>
+            <div class="d-flex justify-content-between align-items-center app-header">
+                <div>
+                    <h2 class="mb-0">Dashboard</h2>
+                    <small class="text-muted">Explora, sube imágenes y entrena tu modelo</small>
+                </div>
+                <div>
+                    <button id="run_btn_top" class="btn btn-primary">Entrenar (10 epochs)</button>
+                </div>
+            </div>
+
             <ul class="nav nav-tabs" id="mainTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="grid-tab" data-bs-toggle="tab" data-bs-target="#grid" type="button" role="tab">Grid (50 imágenes)</button>
+                    <button class="nav-link active" id="grid-tab" data-bs-toggle="tab" data-bs-target="#grid" type="button" role="tab">Grid</button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="predict-tab" data-bs-toggle="tab" data-bs-target="#predict" type="button" role="tab">Predict</button>
@@ -23,36 +65,75 @@
             </ul>
             <div class="tab-content mt-3">
                 <div class="tab-pane fade show active" id="grid" role="tabpanel">
-                    <h5>Primeras 50 imágenes del conjunto de prueba</h5>
-                    <div id="grid_container" class="d-flex flex-wrap gap-2">
-                        <!-- images will be inserted here -->
+                    <div class="card p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h5 class="mb-0">Primeras 50 imágenes</h5>
+                                <small class="text-muted">Haz click en cualquiera para ver en tamaño completo</small>
+                            </div>
+                            <div>
+                                <button id="refresh_grid" class="btn btn-outline-secondary btn-sm">Actualizar</button>
+                            </div>
+                        </div>
+
+                        <div id="grid_container" class="d-flex flex-wrap gap-2">
+                            <!-- images will be inserted here -->
+                        </div>
                     </div>
                 </div>
+
                 <div class="tab-pane fade" id="predict" role="tabpanel">
-                    <h5>Sube una imagen para clasificar (32x32 será aplicado)</h5>
-                    <form id="predict_form" enctype="multipart/form-data">
-                        <div class="mb-3">
-                            <input class="form-control" type="file" id="fileInput" name="file" accept="image/*" required>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card p-3">
+                                <h5>Sube una imagen</h5>
+                                <form id="predict_form" enctype="multipart/form-data">
+                                    <div class="mb-3">
+                                        <input class="form-control" type="file" id="fileInput" name="file" accept="image/*" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <img id="upload_preview" class="preview-img d-none" alt="preview">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Predecir</button>
+                                </form>
+                                <div id="predict_result" class="mt-3"></div>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Predecir</button>
-                    </form>
-                    <div id="predict_result" class="mt-3"></div>
+                        <div class="col-md-6">
+                            <div class="card p-3">
+                                <h5>Instrucciones</h5>
+                                <p class="text-muted">Sube cualquier imagen, será redimensionada a 32×32 antes de la predicción. La salida mostrará la clase y la confianza.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
                 <div class="tab-pane fade" id="results" role="tabpanel">
                     <div class="row">
                         <div class="col-md-6">
-                            <h5>Accuracy</h5>
-                            <img id="acc_img" src="/plot/accuracy.png" class="img-fluid" alt="Accuracy">
+                            <div class="card p-3 mb-3">
+                                <h5>Accuracy</h5>
+                                <img id="acc_img" src="/plot/accuracy.png" class="img-fluid" alt="Accuracy">
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <h5>Loss</h5>
-                            <img id="loss_img" src="/plot/loss.png" class="img-fluid" alt="Loss">
+                            <div class="card p-3 mb-3">
+                                <h5>Loss</h5>
+                                <img id="loss_img" src="/plot/loss.png" class="img-fluid" alt="Loss">
+                            </div>
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <h5>Precisión final estimada</h5>
-                        <div id="final_acc" class="fs-4"></div>
-                        <button id="run_btn" class="btn btn-primary mt-2">Entrenar y actualizar resultados</button>
+                    <div class="d-flex align-items-center gap-3">
+                        <div>
+                            <h6 class="mb-0">Precisión final estimada</h6>
+                            <div id="final_acc" class="fs-4 text-primary"></div>
+                        </div>
+                        <div>
+                            <button id="run_btn" class="btn btn-success">Entrenar y actualizar resultados</button>
+                        </div>
+                        <div id="train_spinner" class="d-none ms-2">
+                            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -157,6 +238,82 @@
                         container.appendChild(wrapper);
                     }
                 })();
+            </script>
+            <script>
+                // modal behavior: open clicked image in modal
+                document.addEventListener('click', function (e) {
+                    if (e.target && e.target.tagName === 'IMG' && e.target.parentElement && e.target.parentElement.parentElement && e.target.parentElement.parentElement.id === 'grid_container') {
+                        const src = e.target.src;
+                        const modalImg = document.getElementById('modal_img');
+                        modalImg.src = src;
+                        const imgModal = new bootstrap.Modal(document.getElementById('imgModal'));
+                        imgModal.show();
+                    }
+                });
+
+                // refresh grid
+                document.getElementById('refresh_grid').addEventListener('click', function(){
+                    // clear and repopulate by reloading the page fragment
+                    const container = document.getElementById('grid_container');
+                    container.innerHTML = '';
+                    for (let i = 0; i < 50; i++) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'card-grid-item';
+                        const img = document.createElement('img');
+                        img.src = '/image/' + i + '?t=' + Date.now();
+                        img.alt = 'img-' + i;
+                        wrapper.appendChild(img);
+                        container.appendChild(wrapper);
+                    }
+                });
+
+                // upload preview
+                const fileInput = document.getElementById('fileInput');
+                fileInput.addEventListener('change', function(){
+                    const preview = document.getElementById('upload_preview');
+                    if (fileInput.files && fileInput.files[0]) {
+                        const url = URL.createObjectURL(fileInput.files[0]);
+                        preview.src = url;
+                        preview.classList.remove('d-none');
+                    } else {
+                        preview.src = '';
+                        preview.classList.add('d-none');
+                    }
+                });
+
+                // top run button maps to same train endpoint
+                const topRun = document.getElementById('run_btn_top');
+                const trainBtn = document.getElementById('run_btn');
+                const spinner = document.getElementById('train_spinner');
+                async function startTrainingUI() {
+                    topRun.disabled = true;
+                    trainBtn.disabled = true;
+                    spinner.classList.remove('d-none');
+                    const res = await fetch('/train_and_plots', { method: 'POST' });
+                    if (res.status === 202) {
+                        // poll for availability of plots
+                        const poll = setInterval(async () => {
+                            const r = await fetch('/plot/accuracy.png');
+                            if (r.ok) {
+                                const ts = Date.now();
+                                document.getElementById('acc_img').src = '/plot/accuracy.png?ts=' + ts;
+                                document.getElementById('loss_img').src = '/plot/loss.png?ts=' + ts;
+                                // enable buttons
+                                topRun.disabled = false;
+                                trainBtn.disabled = false;
+                                spinner.classList.add('d-none');
+                                clearInterval(poll);
+                            }
+                        }, 2000);
+                    } else {
+                        alert('No se pudo iniciar el entrenamiento');
+                        topRun.disabled = false;
+                        trainBtn.disabled = false;
+                        spinner.classList.add('d-none');
+                    }
+                }
+                topRun.addEventListener('click', startTrainingUI);
+                trainBtn.addEventListener('click', startTrainingUI);
             </script>
     </body>
 </html>
